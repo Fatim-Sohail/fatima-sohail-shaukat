@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   createAccessTokenVerifier,
   extractBearerToken,
+  extractDpopToken,
   InvalidAccessTokenError,
   type AccessTokenVerifier,
 } from '../../src/shared/auth/accessToken.js';
@@ -60,8 +61,26 @@ describe('OIDC access token verification', () => {
       subject: 'user-123',
       roles: ['user', 'admin'],
       expiresAt: expect.any(Date) as Date,
+      confirmationJkt: null,
     });
     expect(principal.expiresAt.getTime()).toBeGreaterThan(Date.now() + 290_000);
+  });
+
+  describe('cnf (proof-of-possession confirmation) claim', () => {
+    it('exposes cnf.jkt for DPoP-bound tokens', async () => {
+      const token = await idp.mintToken({ claims: { cnf: { jkt: 'thumbprint-abc' } } });
+      expect((await verify(token)).confirmationJkt).toBe('thumbprint-abc');
+    });
+
+    it.each([
+      ['without jkt (e.g. an mTLS binding)', { 'x5t#S256': 'abc' }],
+      ['with a non-string jkt', { jkt: 42 }],
+      ['that is not an object', 'jkt'],
+    ])('rejects a cnf claim %s', async (_label, cnf) => {
+      expect(await rejectionReason(await idp.mintToken({ claims: { cnf } }))).toBe(
+        'cnf_claim_invalid',
+      );
+    });
   });
 
   describe('Authorization header', () => {
@@ -74,6 +93,20 @@ describe('OIDC access token verification', () => {
       'rejects a missing token (%s)',
       (header) => {
         expect(() => extractBearerToken(header)).toThrow(
+          expect.objectContaining({ kind: 'unauthenticated', code: 'MISSING_TOKEN' }) as AppError,
+        );
+      },
+    );
+
+    it('extracts a DPoP-scheme token regardless of scheme case', () => {
+      expect(extractDpopToken('DPoP abc.def.ghi')).toBe('abc.def.ghi');
+      expect(extractDpopToken('dpop abc.def.ghi')).toBe('abc.def.ghi');
+    });
+
+    it.each([undefined, '', 'DPoP', 'Bearer abc.def.ghi', 'DPoP a b'])(
+      'rejects a missing DPoP-scheme token (%s)',
+      (header) => {
+        expect(() => extractDpopToken(header)).toThrow(
           expect.objectContaining({ kind: 'unauthenticated', code: 'MISSING_TOKEN' }) as AppError,
         );
       },

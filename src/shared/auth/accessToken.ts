@@ -8,6 +8,8 @@ export interface VerifiedAccessToken {
   subject: string;
   roles: readonly string[];
   expiresAt: Date;
+  /** JWK thumbprint from `cnf.jkt` when the provider issued a DPoP-bound token (RFC 9449). */
+  confirmationJkt: string | null;
 }
 
 export type AccessTokenVerifier = (token: string) => Promise<VerifiedAccessToken>;
@@ -38,13 +40,22 @@ const TOKEN_ERRORS = [
 
 const CLOCK_TOLERANCE_SECONDS = 5;
 
-/** Bearer token from an Authorization header (RFC 6750); the scheme is case-insensitive. */
-export function extractBearerToken(authorization: string | undefined): string {
-  const match = /^Bearer +([A-Za-z0-9\-._~+/]+=*)$/i.exec(authorization ?? '');
+function extractToken(scheme: 'Bearer' | 'DPoP', authorization: string | undefined): string {
+  const match = new RegExp(`^${scheme} +([A-Za-z0-9\\-._~+/]+=*)$`, 'i').exec(authorization ?? '');
   if (!match?.[1]) {
-    throw new AppError('unauthenticated', 'MISSING_TOKEN', 'A Bearer access token is required');
+    throw new AppError('unauthenticated', 'MISSING_TOKEN', `A ${scheme} access token is required`);
   }
   return match[1];
+}
+
+/** Bearer token from an Authorization header (RFC 6750); the scheme is case-insensitive. */
+export function extractBearerToken(authorization: string | undefined): string {
+  return extractToken('Bearer', authorization);
+}
+
+/** DPoP-bound token from an `Authorization: DPoP <token>` header (RFC 9449). */
+export function extractDpopToken(authorization: string | undefined): string {
+  return extractToken('DPoP', authorization);
 }
 
 /**
@@ -75,6 +86,18 @@ function rolesFrom(payload: JWTPayload, rolesClaim: string): readonly string[] {
     throw new InvalidAccessTokenError('roles_claim_invalid');
   }
   return roles;
+}
+
+/** A `cnf` claim we cannot interpret (e.g. an mTLS binding) is rejected, never ignored. */
+function confirmationJktFrom(payload: JWTPayload): string | null {
+  const cnf = payload['cnf'];
+  if (cnf === undefined) {
+    return null;
+  }
+  if (typeof cnf === 'object' && cnf !== null && 'jkt' in cnf && typeof cnf.jkt === 'string') {
+    return cnf.jkt;
+  }
+  throw new InvalidAccessTokenError('cnf_claim_invalid');
 }
 
 /**
@@ -118,6 +141,7 @@ export function createAccessTokenVerifier(
       subject: payload.sub as string,
       roles: rolesFrom(payload, config.OIDC_ROLES_CLAIM),
       expiresAt: new Date((payload.exp as number) * 1000),
+      confirmationJkt: confirmationJktFrom(payload),
     };
   };
 }
