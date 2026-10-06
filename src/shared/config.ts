@@ -74,6 +74,7 @@ const envSchema = z
     RATE_LIMIT_SUBSCRIPTION_MAX: positiveInt.default(60),
 
     AI_MOCK_LATENCY_MS: z.coerce.number().int().min(0).max(30_000).default(800),
+    AI_MOCK_FAILURE_RATE: z.coerce.number().min(0).max(1).default(0),
     PAYMENT_FAILURE_RATE: z.coerce.number().min(0).max(1).default(0.1),
   })
   .superRefine((env, ctx) => {

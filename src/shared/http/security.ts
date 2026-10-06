@@ -7,15 +7,34 @@ import type { Config } from '../config.js';
 import { AppError } from '../errors.js';
 import { errorBody } from './errorHandler.js';
 
+declare module 'fastify' {
+  interface FastifyRequest {
+    /** Aborts when the request times out or the client disconnects; pass it to slow work. */
+    abortSignal: AbortSignal | null;
+  }
+}
+
 /**
- * Answers 503 once a request exceeds the time budget. The handler is not
- * cancelled; long-running work must also honour its own timeouts.
+ * Answers 503 once a request exceeds the time budget and aborts `request.abortSignal`
+ * so cooperative work (the AI call) stops too.
  */
 function registerRequestTimeout(app: FastifyInstance, timeoutMs: number): void {
   const timers = new WeakMap<FastifyRequest, NodeJS.Timeout>();
+  app.decorateRequest('abortSignal', null);
 
   app.addHook('onRequest', async (request, reply) => {
+    const controller = new AbortController();
+    request.abortSignal = controller.signal;
+    // Fastify's own request.signal listens to the request 'close' event, which Node also
+    // emits once a body has been read; only the response closing early means a disconnect.
+    reply.raw.once('close', () => {
+      if (!reply.raw.writableFinished) {
+        controller.abort();
+      }
+    });
+
     const timer = setTimeout(() => {
+      controller.abort();
       if (reply.sent) {
         return;
       }

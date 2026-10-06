@@ -1,6 +1,9 @@
 import Fastify, { type FastifyInstance, LogController } from 'fastify';
 import type { Pool } from 'pg';
 
+import { registerChatRoutes } from './modules/chat/controllers/chatRoutes.js';
+import type { AiProvider } from './modules/chat/domain/services/aiProvider.js';
+import { createMockAiProvider } from './modules/chat/infrastructure/mockAiProvider.js';
 import { registerSubscriptionRoutes } from './modules/subscriptions/controllers/subscriptionRoutes.js';
 import type { PaymentGateway } from './modules/subscriptions/domain/services/paymentGateway.js';
 import { createMockPaymentGateway } from './modules/subscriptions/infrastructure/mockPaymentGateway.js';
@@ -25,6 +28,8 @@ export interface AppDependencies {
   logStream?: { write(line: string): void };
   /** Defaults to the simulated provider with PAYMENT_FAILURE_RATE. */
   payments?: PaymentGateway;
+  /** Defaults to the mock AI with AI_MOCK_LATENCY_MS and AI_MOCK_FAILURE_RATE. */
+  ai?: AiProvider;
   now?: () => Date;
 }
 
@@ -34,6 +39,10 @@ export async function buildApp({
   pool,
   logStream,
   payments = createMockPaymentGateway({ failureRate: config.PAYMENT_FAILURE_RATE }),
+  ai = createMockAiProvider({
+    latencyMs: config.AI_MOCK_LATENCY_MS,
+    failureRate: config.AI_MOCK_FAILURE_RATE,
+  }),
   now = () => new Date(),
 }: AppDependencies): Promise<FastifyInstance> {
   const app = Fastify({
@@ -73,6 +82,7 @@ export async function buildApp({
   registerHealthRoute(app, { pool, healthCheckToken: config.HEALTH_CHECK_TOKEN });
   registerAuthRoutes(app);
   registerSubscriptionRoutes(app, { pool, payments, now });
+  registerChatRoutes(app, { pool, ai, now });
 
   return app;
 }

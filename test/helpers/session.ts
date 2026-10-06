@@ -29,6 +29,7 @@ export async function call(
   method: 'GET' | 'POST' | 'PATCH',
   url: string,
   body?: unknown,
+  headers: Record<string, string> = {},
 ): Promise<LightMyRequestResponse> {
   const proof = await createDpopProof(session.key, {
     method,
@@ -38,7 +39,7 @@ export async function call(
   return app.inject({
     method,
     url,
-    headers: { authorization: `DPoP ${session.token}`, dpop: proof },
+    headers: { authorization: `DPoP ${session.token}`, dpop: proof, ...headers },
     ...(body === undefined ? {} : { payload: body as Record<string, unknown> }),
   });
 }
