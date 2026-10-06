@@ -111,7 +111,7 @@ describe('loadConfig', () => {
     expect(configErrorFor({ ...validEnv, [key]: value }).message).toContain(key);
   });
 
-  it('requires https for OIDC endpoints and CORS origins in production', () => {
+  it('requires https for the public URL, OIDC endpoints and CORS origins in production', () => {
     const error = configErrorFor({
       ...validEnv,
       NODE_ENV: 'production',
@@ -120,7 +120,9 @@ describe('loadConfig', () => {
       CORS_ALLOWED_ORIGINS: 'http://app.example.com',
     });
 
+    // PUBLIC_BASE_URL is unset: its http://localhost default must not survive into production.
     expect(error.issues).toEqual([
+      'PUBLIC_BASE_URL: must use https in production',
       'OIDC_ISSUER: must use https in production',
       'OIDC_JWKS_URI: must use https in production',
       'CORS_ALLOWED_ORIGINS.0: must use https in production',

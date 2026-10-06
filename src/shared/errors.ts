@@ -3,7 +3,7 @@
  * application code describe *what* went wrong and the HTTP layer maps it to a status.
  */
 export type ErrorKind =
-  'invalid_input' | 'unauthenticated' | 'not_found' | 'rate_limited' | 'unavailable';
+  'invalid_input' | 'unauthenticated' | 'forbidden' | 'not_found' | 'rate_limited' | 'unavailable';
 
 /** An expected, client-facing error. Its code, message and details are safe to return. */
 export class AppError extends Error {

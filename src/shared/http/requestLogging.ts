@@ -3,13 +3,6 @@ import type { IncomingMessage } from 'node:http';
 
 import type { FastifyInstance } from 'fastify';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    /** Authenticated user, once authentication has run; null for anonymous requests. */
-    userId: string | null;
-  }
-}
-
 /** Restricted charset and length so client-supplied IDs cannot inject into logs. */
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{8,128}$/;
 
@@ -25,8 +18,6 @@ export function requestIdFor(raw: IncomingMessage): string {
 }
 
 export function registerRequestLogging(app: FastifyInstance): void {
-  app.decorateRequest('userId', null);
-
   app.addHook('onRequest', async (request, reply) => {
     reply.header('x-request-id', request.id);
   });
@@ -38,7 +29,7 @@ export function registerRequestLogging(app: FastifyInstance): void {
         url: request.url,
         statusCode: reply.statusCode,
         responseTimeMs: Math.round(reply.elapsedTime),
-        userId: request.userId,
+        userId: request.principal?.userId ?? null,
       },
       'request completed',
     );

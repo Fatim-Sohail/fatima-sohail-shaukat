@@ -1,7 +1,11 @@
 import Fastify, { type FastifyInstance, LogController } from 'fastify';
 import type { Pool } from 'pg';
 
+import { createAccessTokenVerifier } from './shared/auth/accessToken.js';
+import { createDpopVerifier } from './shared/auth/dpop.js';
 import type { Config } from './shared/config.js';
+import { registerAuthentication } from './shared/http/auth.js';
+import { registerAuthRoutes } from './shared/http/authRoutes.js';
 import { registerErrorHandling } from './shared/http/errorHandler.js';
 import { registerHealthRoute } from './shared/http/healthRoute.js';
 import {
@@ -40,6 +44,8 @@ export async function buildApp({
     bodyLimit: config.REQUEST_BODY_LIMIT_BYTES,
     requestTimeout: config.REQUEST_TIMEOUT_MS,
     trustProxy: config.TRUST_PROXY,
+    // No implicit HEAD copy of every GET route: less surface, and nothing a JSON API needs.
+    exposeHeadRoutes: false,
   });
 
   // Order matters: the request ID header is set first so every response carries it,
@@ -48,7 +54,16 @@ export async function buildApp({
   await registerSecurity(app, config);
   registerErrorHandling(app);
 
+  // Must come before any route: it makes every later route authenticated by default.
+  registerAuthentication(app, {
+    config,
+    pool,
+    verifyToken: createAccessTokenVerifier(config),
+    verifyDpop: createDpopVerifier({ pool, proofMaxAgeSeconds: config.DPOP_PROOF_MAX_AGE_SECONDS }),
+  });
+
   registerHealthRoute(app, { pool, healthCheckToken: config.HEALTH_CHECK_TOKEN });
+  registerAuthRoutes(app);
 
   return app;
 }

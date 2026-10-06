@@ -15,7 +15,8 @@ export function registerHealthRoute(
   // Comparing fixed-length digests keeps the check constant-time regardless of input length.
   const expectedDigest = sha256(deps.healthCheckToken);
 
-  app.get('/health', async (request) => {
+  // Not behind OIDC auth (probes have no user identity); the health token protects it instead.
+  app.get('/health', { config: { public: true } }, async (request) => {
     const provided = request.headers['x-health-token'];
     if (typeof provided !== 'string' || !timingSafeEqual(sha256(provided), expectedDigest)) {
       throw new AppError('unauthenticated', 'UNAUTHORIZED', 'Missing or invalid health token');

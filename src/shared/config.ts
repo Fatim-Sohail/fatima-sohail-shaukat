@@ -48,6 +48,8 @@ const envSchema = z
     PORT: positiveInt.max(65_535).default(3000),
     LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
     TRUST_PROXY: z.stringbool().default(false),
+    // Origin clients use to reach the API; DPoP proofs are checked against it (never the Host header).
+    PUBLIC_BASE_URL: origin.default('http://localhost:3000'),
 
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
 
@@ -79,6 +81,7 @@ const envSchema = z
       return;
     }
     const mustBeHttps: [string, string][] = [
+      ['PUBLIC_BASE_URL', env.PUBLIC_BASE_URL],
       ['OIDC_ISSUER', env.OIDC_ISSUER],
       ['OIDC_JWKS_URI', env.OIDC_JWKS_URI],
       ...env.CORS_ALLOWED_ORIGINS.map((value, index): [string, string] => [

@@ -27,8 +27,8 @@ describe('HTTP security middleware', () => {
 
   async function start(overrides: Record<string, string> = {}): Promise<FastifyInstance> {
     app = await buildApp({ config: testConfig(overrides), pool });
-    app.post('/test/echo', (request) => ({ received: request.body }));
-    app.get('/test/slow', async () => {
+    app.post('/test/echo', { config: { public: true } }, (request) => ({ received: request.body }));
+    app.get('/test/slow', { config: { public: true } }, async () => {
       await sleep(200);
       return { done: true };
     });

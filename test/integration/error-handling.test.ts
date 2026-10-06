@@ -22,16 +22,16 @@ describe('centralized error handling and logging', () => {
       logStream: { write: (line) => void logLines.push(line) },
     });
 
-    app.get('/test/app-error', () => {
+    app.get('/test/app-error', { config: { public: true } }, () => {
       throw new AppError('not_found', 'WIDGET_NOT_FOUND', 'Widget not found', { widgetId: 'w1' });
     });
-    app.post('/test/validated', (request) => {
+    app.post('/test/validated', { config: { public: true } }, (request) => {
       return z.strictObject({ name: z.string().min(1) }).parse(request.body);
     });
-    app.get('/test/crash', () => {
+    app.get('/test/crash', { config: { public: true } }, () => {
       throw new Error('connection to db-internal.local failed: password=hunter2');
     });
-    app.get('/test/log-headers', (request) => {
+    app.get('/test/log-headers', { config: { public: true } }, (request) => {
       request.log.info({ headers: request.headers }, 'headers seen');
       return { ok: true };
     });

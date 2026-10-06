@@ -18,6 +18,7 @@ interface HttpError {
 const STATUS_BY_KIND: Record<ErrorKind, number> = {
   invalid_input: 400,
   unauthenticated: 401,
+  forbidden: 403,
   not_found: 404,
   rate_limited: 429,
   unavailable: 503,
@@ -97,8 +98,10 @@ export function registerErrorHandling(app: FastifyInstance): void {
     if (httpError.statusCode >= 500) {
       request.log.error({ err: error }, 'request failed');
     } else {
+      // Auth errors carry an internal reason (e.g. which JWT check failed): logged, never returned.
+      const reason = error instanceof AppError && 'reason' in error ? error.reason : undefined;
       request.log.info(
-        { statusCode: httpError.statusCode, code: httpError.code },
+        { statusCode: httpError.statusCode, code: httpError.code, reason },
         'request rejected',
       );
     }

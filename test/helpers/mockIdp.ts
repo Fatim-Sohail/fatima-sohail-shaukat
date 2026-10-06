@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
@@ -76,6 +77,7 @@ export async function startMockIdp(): Promise<MockIdp> {
         .setIssuer(options.issuer ?? issuer)
         .setAudience(options.audience ?? AUDIENCE)
         .setSubject(options.subject ?? 'user-123')
+        .setJti(randomUUID())
         .setIssuedAt(now);
       if (options.expiresIn !== null) {
         jwt.setExpirationTime(now + (options.expiresIn ?? 300));
