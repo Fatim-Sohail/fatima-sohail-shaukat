@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import { registerChatRoutes } from './modules/chat/controllers/chatRoutes.js';
 import type { AiProvider } from './modules/chat/domain/services/aiProvider.js';
 import { createMockAiProvider } from './modules/chat/infrastructure/mockAiProvider.js';
+import { registerMetricsRoutes } from './modules/metrics/controllers/metricsRoutes.js';
 import { registerSubscriptionRoutes } from './modules/subscriptions/controllers/subscriptionRoutes.js';
 import type { PaymentGateway } from './modules/subscriptions/domain/services/paymentGateway.js';
 import { createMockPaymentGateway } from './modules/subscriptions/infrastructure/mockPaymentGateway.js';
@@ -83,6 +84,7 @@ export async function buildApp({
   registerAuthRoutes(app);
   registerSubscriptionRoutes(app, { pool, payments, now });
   registerChatRoutes(app, { pool, ai, now });
+  registerMetricsRoutes(app, { pool, now });
 
   return app;
 }
