@@ -20,6 +20,7 @@ const STATUS_BY_KIND: Record<ErrorKind, number> = {
   unauthenticated: 401,
   forbidden: 403,
   not_found: 404,
+  conflict: 409,
   rate_limited: 429,
   unavailable: 503,
 };
