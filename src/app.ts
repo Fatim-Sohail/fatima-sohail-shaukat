@@ -1,6 +1,9 @@
 import Fastify, { type FastifyInstance, LogController } from 'fastify';
 import type { Pool } from 'pg';
 
+import { registerSubscriptionRoutes } from './modules/subscriptions/controllers/subscriptionRoutes.js';
+import type { PaymentGateway } from './modules/subscriptions/domain/services/paymentGateway.js';
+import { createMockPaymentGateway } from './modules/subscriptions/infrastructure/mockPaymentGateway.js';
 import { createAccessTokenVerifier } from './shared/auth/accessToken.js';
 import { createDpopVerifier } from './shared/auth/dpop.js';
 import type { Config } from './shared/config.js';
@@ -20,6 +23,9 @@ export interface AppDependencies {
   pool: Pool;
   /** Log destination; defaults to stdout. Lets tests inspect structured log output. */
   logStream?: { write(line: string): void };
+  /** Defaults to the simulated provider with PAYMENT_FAILURE_RATE. */
+  payments?: PaymentGateway;
+  now?: () => Date;
 }
 
 /** Builds a fully wired application without listening, for both the server and tests. */
@@ -27,6 +33,8 @@ export async function buildApp({
   config,
   pool,
   logStream,
+  payments = createMockPaymentGateway({ failureRate: config.PAYMENT_FAILURE_RATE }),
+  now = () => new Date(),
 }: AppDependencies): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -64,6 +72,7 @@ export async function buildApp({
 
   registerHealthRoute(app, { pool, healthCheckToken: config.HEALTH_CHECK_TOKEN });
   registerAuthRoutes(app);
+  registerSubscriptionRoutes(app, { pool, payments, now });
 
   return app;
 }

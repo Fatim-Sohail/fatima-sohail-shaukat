@@ -18,6 +18,7 @@ interface HttpError {
 const STATUS_BY_KIND: Record<ErrorKind, number> = {
   invalid_input: 400,
   unauthenticated: 401,
+  payment_required: 402,
   forbidden: 403,
   not_found: 404,
   conflict: 409,

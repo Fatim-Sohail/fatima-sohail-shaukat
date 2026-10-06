@@ -5,6 +5,7 @@
 export type ErrorKind =
   | 'invalid_input'
   | 'unauthenticated'
+  | 'payment_required'
   | 'forbidden'
   | 'not_found'
   | 'conflict'

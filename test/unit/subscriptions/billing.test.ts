@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { cancel } from '../../../src/modules/subscriptions/domain/entities/subscription.js';
-import { billSubscription } from '../../../src/modules/subscriptions/domain/services/billing.js';
+import {
+  billSubscription,
+  purchaseSubscription,
+} from '../../../src/modules/subscriptions/domain/services/billing.js';
 import type {
   ChargeRequest,
   PaymentGateway,
@@ -21,6 +24,53 @@ function gateway(succeeded: boolean): PaymentGateway & { charges: ChargeRequest[
     },
   };
 }
+
+describe('purchaseSubscription', () => {
+  const input = {
+    userId: 'user-1',
+    tier: 'pro',
+    billingCycle: 'monthly',
+    autoRenew: true,
+  } as const;
+
+  it('charges the first period and returns an active subscription', async () => {
+    const payments = gateway(true);
+    const { subscription: sub, payment } = await purchaseSubscription(input, 'sub-9', T0, payments);
+
+    expect(sub).toMatchObject({
+      id: 'sub-9',
+      status: 'active',
+      autoRenew: true,
+      priceCents: 2_999,
+    });
+    expect(payment).toEqual({
+      amountCents: 2_999,
+      status: 'succeeded',
+      periodStart: T0,
+      periodEnd: APRIL_15,
+    });
+    expect(payments.charges).toEqual([
+      {
+        subscriptionId: 'sub-9',
+        userId: 'user-1',
+        amountCents: 2_999,
+        idempotencyKey: `sub-9:${T0.toISOString()}`,
+      },
+    ]);
+  });
+
+  it('returns an inactive, non-renewing subscription when the payment is declined', async () => {
+    const { subscription: sub, payment } = await purchaseSubscription(
+      input,
+      'sub-9',
+      T0,
+      gateway(false),
+    );
+
+    expect(sub).toMatchObject({ status: 'inactive', autoRenew: false, renewalDate: null });
+    expect(payment.status).toBe('failed');
+  });
+});
 
 describe('billSubscription', () => {
   it('charges and renews a due auto-renewing subscription', async () => {

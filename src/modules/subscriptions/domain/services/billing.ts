@@ -1,12 +1,18 @@
 import {
+  createSubscription,
   expire,
   isRenewalDue,
   nextPeriodStart,
   renew,
+  type CreateSubscription,
   type Subscription,
 } from '../entities/subscription.js';
 import { addBillingCycle } from '../entities/period.js';
 import type { PaymentGateway } from './paymentGateway.js';
+
+// One key per subscription period, so a retried charge for the same period is deduplicated.
+const chargeKey = (subscriptionId: string, periodStart: Date): string =>
+  `${subscriptionId}:${periodStart.toISOString()}`;
 
 export interface PaymentRecord {
   amountCents: number;
@@ -43,7 +49,7 @@ export async function billSubscription(
       subscriptionId: sub.id,
       userId: sub.userId,
       amountCents: sub.priceCents,
-      idempotencyKey: `${sub.id}:${periodStart.toISOString()}`,
+      idempotencyKey: chargeKey(sub.id, periodStart),
     });
 
     const payment: PaymentRecord = {
@@ -64,4 +70,35 @@ export async function billSubscription(
   }
 
   return { outcome: 'unchanged', subscription: sub };
+}
+
+/**
+ * Initial purchase: charges the first period. A declined payment still yields a
+ * record of the attempt, but the subscription is inactive and will never renew.
+ */
+export async function purchaseSubscription(
+  input: CreateSubscription,
+  id: string,
+  now: Date,
+  payments: PaymentGateway,
+): Promise<{ subscription: Subscription; payment: PaymentRecord }> {
+  const sub: Subscription = { id, ...createSubscription(input, now) };
+  const { succeeded } = await payments.charge({
+    subscriptionId: id,
+    userId: sub.userId,
+    amountCents: sub.priceCents,
+    idempotencyKey: chargeKey(id, sub.startDate),
+  });
+
+  return {
+    subscription: succeeded
+      ? sub
+      : { ...sub, status: 'inactive', autoRenew: false, renewalDate: null },
+    payment: {
+      amountCents: sub.priceCents,
+      status: succeeded ? 'succeeded' : 'failed',
+      periodStart: sub.startDate,
+      periodEnd: sub.endDate,
+    },
+  };
 }
