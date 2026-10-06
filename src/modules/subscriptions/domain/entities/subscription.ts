@@ -55,7 +55,10 @@ export function createSubscription(input: CreateSubscription, now: Date): NewSub
   };
 }
 
-export function isUsable(sub: NewSubscription, now: Date): boolean {
+export function isUsable(
+  sub: Pick<NewSubscription, 'status' | 'startDate' | 'endDate'>,
+  now: Date,
+): boolean {
   return sub.status === 'active' && sub.startDate <= now && now < sub.endDate;
 }
 
