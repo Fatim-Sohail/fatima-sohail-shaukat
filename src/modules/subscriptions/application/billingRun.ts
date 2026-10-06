@@ -11,17 +11,19 @@ export interface BillingSummary {
   errors: number;
 }
 
+/** Admin-triggered billing (POST /admin/billing/run). */
+export function runBilling(deps: SubscriptionDeps, principal: Principal): Promise<BillingSummary> {
+  assertAdmin(principal);
+  return billDueSubscriptions(deps);
+}
+
 /**
  * Processes every subscription that is due, one per transaction. The row stays locked
  * while it is charged so no other run can bill it concurrently; the charge's idempotency
- * key covers a crash between charging and committing.
+ * key covers a crash between charging and committing. Shared by the admin endpoint and
+ * the scheduler, which has no user principal.
  */
-export async function runBilling(
-  deps: SubscriptionDeps,
-  principal: Principal,
-): Promise<BillingSummary> {
-  assertAdmin(principal);
-
+export async function billDueSubscriptions(deps: SubscriptionDeps): Promise<BillingSummary> {
   const now = deps.now();
   const summary: BillingSummary = { renewed: 0, failed: 0, expired: 0, errors: 0 };
   // Rows already tried in this run; a row that errored stays due and must not be retried in a loop.

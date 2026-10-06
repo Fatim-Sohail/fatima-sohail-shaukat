@@ -76,6 +76,7 @@ const envSchema = z
     AI_MOCK_LATENCY_MS: z.coerce.number().int().min(0).max(30_000).default(800),
     AI_MOCK_FAILURE_RATE: z.coerce.number().min(0).max(1).default(0),
     PAYMENT_FAILURE_RATE: z.coerce.number().min(0).max(1).default(0.1),
+    BILLING_INTERVAL_MS: positiveInt.min(1_000).max(86_400_000).default(60_000),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') {
